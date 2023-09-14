@@ -2,7 +2,7 @@
 
 ## 簡介
 
-這個專案是一個用於工廠排程管理的系統，與之前[基因演算法](https://github.com/yocolayo/Genetic-Algorithm)的限制相同，本次將專注於使用NSGA-II（Non-dominated Sorting Genetic Algorithm II）來解決這個問題。
+這個專案是一個用於工廠排程管理的系統，與之前[多目標基因演算法](https://github.com/yocolayo/Genetic-Algorithm)的限制相同，本次將專注於使用NSGA-II（Non-dominated Sorting Genetic Algorithm II）來解決這個問題。
 
 NSGA-II是一種多目標優化算法，用於解決具有多個目標函數的優化問題。在這個排程管理專案中，NSGA-II的目標是找到一組工單排程，使得以下目標最佳化：
 
