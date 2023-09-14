@@ -1,10 +1,13 @@
-# 匯入工單號
 import pandas as pd
 import random
+import plotly.express as px
+import pandas as pd
 
+# 讀取工單資料
 wo = pd.read_excel('WIP.xlsx')
 wo.head(5)
-# 加工時間
+
+# 定義不同產品類型和機台的加工時間
 PROCESS_TIME = {
     ('A', 330): (3600/500, 0),
     ('A', 310): (3600/200, 0),
@@ -20,6 +23,7 @@ PROCESS_TIME = {
     ('D', 500): (3600/500, 3600/250)
 }
 
+# 新增 total_time 列計算每個工單的總加工時間
 wo['total_time'] =  0 
 
 for row in range(len(wo)):
@@ -27,7 +31,7 @@ for row in range(len(wo)):
     machine = wo.iloc[row]['產線']
     wo.at[row, 'total_time'] = wo.iloc[row]['填充需求數量'] *  PROCESS_TIME[(machine, type)][0] + wo.iloc[row]['貼標需求數量'] *  PROCESS_TIME[(machine, type)][1]
 
-
+# 定義工單類別的物件
 class ORDER():
     def __init__(self, wo_id, wo_type, machine, num_fill, num_sticker, due, total_time):
         self.wo_id = wo_id
@@ -40,7 +44,7 @@ class ORDER():
 
 order_seq = []
 
-# 把每一個工單變成物件
+# 將每個工單轉換為物件並添加到 order_seq 列表中
 for row in range(len(wo)):
     wo_id = wo.iloc[row]['工單編號']
     wo_type = wo.iloc[row]['產品類型']
@@ -54,6 +58,7 @@ for row in range(len(wo)):
 
 from datetime import date, timedelta
 
+# 定義計算適應度的函數
 def fitness_count(order_seq):
     # 初始化資料
     job = []
@@ -85,7 +90,6 @@ def fitness_count(order_seq):
             setup_time = 5*60
         all_setup_time += setup_time
         total_process_time = fill_time + stick_time + setup_time
-        # print(f'排入工單編號:{wo_id}, 產線:{machine}, 產品類型:{wo_type}, 填充時間{fill_time}, 貼標時間:{stick_time}, 整備時間:{setup_time}, 總加工時間:{total_process_time}, DUE:{str(due)[:10]}')
 
         order_start_time = 0
         order_finish_time = 0
@@ -97,7 +101,6 @@ def fitness_count(order_seq):
                 machine_state_D = 0 # 釋放D機台
                 machine_time_ABC[machine] = order_finish_time # 本單佔用機台最後時間
                 machine_state_ABC[machine] = 1 # 更新佔用某機台
-                # print(f'前單為D機台或此單為首單')
 
             elif sum(machine_state_ABC.values()) == 1: # 假如已有一台ABC機群運作，要判斷是否沿用同台或換台了
                 previous_machine = ([current_machine for (current_machine, state) in machine_state_ABC.items() if state == 1])[0]
@@ -105,21 +108,18 @@ def fitness_count(order_seq):
                     order_start_time = machine_time_ABC[machine]
                     order_finish_time = order_start_time + total_process_time
                     machine_time_ABC[machine] = order_finish_time # 本單佔用機台最後時間
-                    # print('沿用同台，持續佔用')
                 else:
                     order_start_time = machine_time_D # 開始時間為D佔用的最後時間
                     order_finish_time = order_start_time + total_process_time # 加上本單作業時間
                     machine_state_D = 0 # 釋放D機台
                     machine_time_ABC[machine] = order_finish_time # 本單佔用機台最後時間
                     machine_state_ABC[machine] = 1 # 更新佔用某機台
-                    # print(f'插入非上一單機台')
             else :
                 previous_machine = ([current_machine for (current_machine, state) in machine_state_ABC.items() if state == 1])
                 if machine in previous_machine:
                     order_start_time = machine_time_ABC[machine]
                     order_finish_time = order_start_time + total_process_time
                     machine_time_ABC[machine] = order_finish_time # 本單佔用機台最後時間
-                    # print('沿用同台，持續佔用')
                 else:
                     ABC_list = [(pre_machine, time) for ((pre_machine,state), time) in (zip(machine_state_ABC.items(), machine_time_ABC.values())) if state == 1] # 找ABC佔用的情況跟最後時間
                     min_element = min(ABC_list, key=lambda x: x[1])
@@ -128,13 +128,11 @@ def fitness_count(order_seq):
                     machine_state_ABC[min_element[0]] = 0 # 釋放D機台
                     machine_time_ABC[machine] = order_finish_time # 本單佔用機台最後時間
                     machine_state_ABC[machine] = 1 # 更新佔用某機台
-                    # print(f'此單ABC機台已被佔用，需等待至佔用機台最早結束時間')
         else:
             if machine_state_D == 1:
                 order_start_time = machine_time_D
                 machine_time_D += total_process_time # 本單佔用機台最後時間
                 order_finish_time = machine_time_D
-                # print(f'繼續使用D機台')
             elif sum(machine_state_ABC.values()) > 0:
                 ABC_list = [(pre_machine, time) for ((pre_machine,state), time) in (zip(machine_state_ABC.items(), machine_time_ABC.values())) if state == 1] # 找ABC佔用的情況跟最後時間
                 min_element = max(ABC_list, key=lambda x: x[1])
@@ -144,28 +142,21 @@ def fitness_count(order_seq):
                     machine_state_ABC[history[0]] = 0
                 machine_time_D = order_finish_time # 本單佔用機台最後時間
                 machine_state_D = 1 # 更新佔用某機台
-                # print(f'此單前ABC機台已被佔用，需等待佔用機台結束後才可開工')
             else:
                 order_start_time = machine_time_D
                 machine_time_D = total_process_time # 本單佔用機台最後時間
                 machine_state_D = 1 # 更新佔用某機台
                 order_finish_time = machine_time_D
-                # print(f'此單為首單')
 
         previous = wo_type
         finish_date = int(order_finish_time/(3600*24)) 
         tardiness = max((today_timestamp + timedelta(days=finish_date) - due).days,0)
         all_tardiness_time += tardiness
-        # print(f'【真實】開始時間為{today_timestamp + timedelta(seconds=order_start_time)}，結束時間:{today_timestamp + timedelta(seconds=order_finish_time)}')
-        # print(f'【時間戳記】開始時間: {int(order_start_time)}, 結束時間:{int(order_finish_time)}, 完工日期:{str(today_timestamp + timedelta(days=finish_date))[:10]}')
-        # print(f'A:{machine_state_ABC["A"]}, B:{machine_state_ABC["B"]}, C:{machine_state_ABC["C"]}, D:{machine_state_D}')
-        # print(f'A:{machine_time_ABC["A"]}, B:{machine_time_ABC["B"]}, C:{machine_time_ABC["C"]}, D:{machine_time_D}')
 
         job.append(wo_id)
         start_time.append(today_timestamp + timedelta(seconds=order_start_time))
         finish_time.append(today_timestamp + timedelta(seconds=order_finish_time))
         resource.append(machine)
-        # print('------------------------------------------------------------------------------------------------------------------------------------------')
 
     max_ABC = max(machine_time_ABC.items(), key=lambda x: x[1])[1]
     maxspan = max_ABC
@@ -175,18 +166,14 @@ def fitness_count(order_seq):
     
     return maxspan, all_setup_time, all_tardiness_time*3600*24, schedule
 
-# EDD
-
-import plotly.express as px
-import pandas as pd
-
+# EDD排序
 sorted_order_seq = sorted(order_seq, key=lambda x: x.due)
 maxspan, all_setup_time, all_tardiness_time, sc = fitness_count(sorted_order_seq)
 sc["Start"] = pd.to_datetime(sc["Start"])
 sc["Finish"] = pd.to_datetime(sc["Finish"])
 df = sc.sort_values(by="產線", ascending=False)
 
-# Create a Gantt chart
+# 創建甘特圖
 fig = px.timeline(df, 
                   x_start="Start", 
                   x_end="Finish", 
@@ -194,24 +181,20 @@ fig = px.timeline(df,
                   color="工單編號", 
                   title="Gantt Chart - by 機台")
 print(f'maxspan:{maxspan}, setup time:{all_setup_time}, tardiness:{all_tardiness_time}')
-# Show the chart
+# 顯示甘特圖
 fig.show()
 df = pd.merge(sc, wo, on='工單編號').drop(columns=['產線_y'])
 df['遲繳'] =  df['Finish'] - df['交期'] 
 print(df)
 
-# SPT
-
-import plotly.express as px
-import pandas as pd
-
+# SPT排序
 sorted_order_seq = sorted(order_seq, key=lambda x: x.total_time)
 maxspan, all_setup_time, all_tardiness_time, sc = fitness_count(sorted_order_seq)
 sc["Start"] = pd.to_datetime(sc["Start"])
 sc["Finish"] = pd.to_datetime(sc["Finish"])
 df = sc.sort_values(by="產線", ascending=False)
 
-# Create a Gantt chart
+# 創建甘特圖
 fig = px.timeline(df, 
                   x_start="Start", 
                   x_end="Finish", 
@@ -219,7 +202,7 @@ fig = px.timeline(df,
                   color="工單編號", 
                   title="Gantt Chart - by 機台")
 print(f'maxspan:{maxspan}, setup time:{all_setup_time}, tardiness:{all_tardiness_time}')
-# Show the chart
+# 顯示甘特圖
 fig.show()
 df = pd.merge(sc, wo, on='工單編號').drop(columns=['產線_y'])
 df['遲繳'] =  df['Finish'] - df['交期'] 
