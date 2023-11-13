@@ -1,5 +1,6 @@
 # 工廠排程 - 使用NSGA-II
 
+![image](https://github.com/clay-cchuang/NSGA-II/blob/main/gantt.png)
 ## 簡介
 
 這個專案是一個用於工廠排程管理的系統，與之前[多目標基因演算法](https://github.com/yocolayo/Genetic-Algorithm)的限制相同，本次將專注於使用NSGA-II（Non-dominated Sorting Genetic Algorithm II）來解決這個問題。
